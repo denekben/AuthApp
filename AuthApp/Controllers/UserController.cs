@@ -3,21 +3,21 @@ using AuthApp.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AuthApp.Controllers {
     [ApiController]
     [Route("api/user")]
     public class UserController : Controller {
-        private readonly SignInManager<AppUser> _signInManager;
         private readonly UserManager<AppUser> _userManager;
+        private readonly RoleManager<AppUser> _roleManager;
 
-        public UserController(SignInManager<AppUser> signInManager, UserManager<AppUser> userManager) {
-            _signInManager = signInManager;
+        public UserController(UserManager<AppUser> userManager) {
             _userManager = userManager;
         }
 
         [HttpGet("userStatus")]
-        [Authorize]
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> GetUserStatus() {
             // Получение текущего пользователя
             var username = User.GetUsername();

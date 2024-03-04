@@ -3,6 +3,7 @@ using AuthApp.Interfaces;
 using AuthApp.Models;
 using AuthApp.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -47,7 +48,9 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options => {
     options.Password.RequireLowercase = true;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 12;
-}).AddEntityFrameworkStores<AppDbContext>();
+}).AddRoles<IdentityRole>()
+.AddDefaultTokenProviders()
+  .AddEntityFrameworkStores<AppDbContext>();
 
 builder.Services.AddAuthentication(options => {
     options.DefaultAuthenticateScheme =
@@ -67,6 +70,13 @@ builder.Services.AddAuthentication(options => {
             System.Text.Encoding.UTF8.GetBytes(builder.Configuration["JWT:SigningKey"])
         )
     };
+    options.Events = new JwtBearerEvents {
+        OnMessageReceived = context =>
+        {
+            context.Token = context.Request.Cookies["CookieName"];
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddDbContext<AppDbContext>(
@@ -84,6 +94,12 @@ if (app.Environment.IsDevelopment()) {
 }
 
 app.UseHttpsRedirection();
+
+app.UseCookiePolicy(new CookiePolicyOptions {
+    MinimumSameSitePolicy = SameSiteMode.Strict,
+    HttpOnly = HttpOnlyPolicy.Always,
+    Secure = CookieSecurePolicy.Always
+});
 
 app.UseAuthentication();
 

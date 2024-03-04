@@ -30,11 +30,16 @@ namespace AuthApp.Controllers {
             var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password,false);
 
             if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrert");
+
+            var token = await _tokenService.CreateToken(user);
+
+            HttpContext.Response.Cookies.Append("CookieName", token);
+
             return Ok(
                 new NewUserDto {
                     UserName = user.UserName,
                     Email = user.Email,
-                    Token = _tokenService.CreateToken(user)
+                    Token = token
                 }
             );
         }
@@ -52,13 +57,13 @@ namespace AuthApp.Controllers {
 
                 var createdUser = await _userManager.CreateAsync(appUser, registerDto.Password);
                 if(createdUser.Succeeded) {
-                    var roleResult = await _userManager.AddToRoleAsync(appUser,"User");
+                    var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
                     if(roleResult.Succeeded) {
                         return Ok(
                             new NewUserDto {
                                 UserName = registerDto.UserName,
                                 Email = registerDto.Email,
-                                Token = _tokenService.CreateToken(appUser)
+                                Token = await _tokenService.CreateToken(appUser)
                             }
                         );
                     } else {
@@ -66,6 +71,7 @@ namespace AuthApp.Controllers {
                     }
                 }
                 else {
+                    await _userManager.DeleteAsync(appUser);
                     return StatusCode(500, createdUser.Errors);
                 }
             }
