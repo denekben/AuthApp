@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace AuthApp.Dto {
+namespace AuthApp.DTOs {
     public class LoginDto {
         [Required]
         public string UserName { get; set; }

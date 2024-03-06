@@ -1,4 +1,4 @@
-﻿using AuthApp.Dto;
+﻿using AuthApp.DTOs;
 using AuthApp.Extensions;
 using AuthApp.Interfaces;
 using AuthApp.Models;
@@ -6,11 +6,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace AuthApp.Controllers {
     [ApiController]
     [Route("api/account")]
-    public class AccountController : Controller{
+    public class AccountController : Controller {
         private readonly UserManager<AppUser> _userManager;
         private readonly ITokenService _tokenService;
         private readonly SignInManager<AppUser> _signInManager;
@@ -22,20 +23,29 @@ namespace AuthApp.Controllers {
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto loginDto) {
-            if(!ModelState.IsValid) {
+            if (!ModelState.IsValid) {
                 return BadRequest(ModelState);
             }
             var user = await _userManager.Users.FirstOrDefaultAsync(x => x.UserName == loginDto.UserName.ToLower());
 
             if (user == null) return Unauthorized("Invalid username!");
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password,false);
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
 
             if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrert");
 
             var token = await _tokenService.CreateToken(user);
+            var refreshToken = _tokenService.GenerateRefreshToken();
+            _tokenService.SetRefreshToken(user, refreshToken);
 
-            HttpContext.Response.Cookies.Append("CookieName", token);
+            HttpContext.Response.Cookies.Append("Access-Token", token);
+            HttpContext.Response.Cookies.Append("Username", user.UserName);
+            HttpContext.Response.Cookies.Append("Refresh-Token", user.RefreshToken, 
+                new CookieOptions {
+                    HttpOnly = true,
+                    Expires = refreshToken.Expires
+                }
+            );
 
             return Ok(
                 new NewUserDto {
@@ -49,7 +59,7 @@ namespace AuthApp.Controllers {
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto registerDto) {
             try {
-                if(!ModelState.IsValid) {
+                if (!ModelState.IsValid) {
                     return BadRequest(ModelState);
                 }
                 var appUser = new AppUser {
@@ -58,9 +68,23 @@ namespace AuthApp.Controllers {
                 };
 
                 var createdUser = await _userManager.CreateAsync(appUser, registerDto.Password);
-                if(createdUser.Succeeded) {
+                if (createdUser.Succeeded) {
                     var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
-                    if(roleResult.Succeeded) {
+                    if (roleResult.Succeeded) {
+
+                        var token = await _tokenService.CreateToken(appUser);
+                        var refreshToken = _tokenService.GenerateRefreshToken();
+                        _tokenService.SetRefreshToken(appUser, refreshToken);
+
+                        HttpContext.Response.Cookies.Append("Access-Token", token);
+                        HttpContext.Response.Cookies.Append("Username", appUser.UserName);
+                        HttpContext.Response.Cookies.Append("Refresh-Token", appUser.RefreshToken,
+                            new CookieOptions {
+                                HttpOnly = true,
+                                Expires = refreshToken.Expires
+                            }
+                        );
+
                         return Ok(
                             new NewUserDto {
                                 UserName = registerDto.UserName,
@@ -68,7 +92,8 @@ namespace AuthApp.Controllers {
                                 Token = await _tokenService.CreateToken(appUser)
                             }
                         );
-                    } else {
+                    }
+                    else {
                         return StatusCode(500, roleResult.Errors);
                     }
                 }
@@ -77,7 +102,7 @@ namespace AuthApp.Controllers {
                     return StatusCode(500, createdUser.Errors);
                 }
             }
-            catch (Exception ex) { 
+            catch (Exception ex) {
                 return StatusCode(500, ex);
             }
         }
@@ -95,6 +120,35 @@ namespace AuthApp.Controllers {
             else {
                 return Unauthorized("Unauthorized");
             }
+        }
+
+        [HttpPost("refresh-token")]
+        public async Task<ActionResult<string>> RefreshToken() {
+            var username = User.GetUsername();
+            var appUser = await _userManager.FindByNameAsync(username);
+
+            var refreshToken = Request.Cookies["Refresh-Token"];
+
+            if (!appUser.RefreshToken.Equals(refreshToken)) {
+                return Unauthorized("Invalid Refresh Token.");
+            }
+            else if (appUser.TokenExpires < DateTime.Now) {
+                return Unauthorized("Token expired.");
+            }
+            string token = await _tokenService.CreateToken(appUser);
+            var newRefreshToken = _tokenService.GenerateRefreshToken();
+            _tokenService.SetRefreshToken(appUser, newRefreshToken);
+
+            HttpContext.Response.Cookies.Append("Access-Token", token);
+            HttpContext.Response.Cookies.Append("Username", appUser.UserName);
+            HttpContext.Response.Cookies.Append("Refresh-Token", appUser.RefreshToken,
+                new CookieOptions {
+                    HttpOnly = true,
+                    Expires = newRefreshToken.Expires
+                }
+            );
+
+            return Ok(newRefreshToken);
         }
     }
 }

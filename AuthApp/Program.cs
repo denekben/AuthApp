@@ -16,7 +16,6 @@ var builder = WebApplication.CreateBuilder();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
 builder.Services.AddSwaggerGen(option => {
     option.SwaggerDoc("v1", new OpenApiInfo { Title = "Demo API", Version = "v1" });
     option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
@@ -73,7 +72,7 @@ builder.Services.AddAuthentication(options => {
     options.Events = new JwtBearerEvents {
         OnMessageReceived = context =>
         {
-            context.Token = context.Request.Cookies["CookieName"];
+            context.Token = context.Request.Cookies["Access-Token"];
             return Task.CompletedTask;
         }
     };
@@ -85,11 +84,14 @@ builder.Services.AddDbContext<AppDbContext>(
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var app = builder.Build();
 
-await Seed.SeedUsersAndRolesAsync(app);
-
-
+if(args.Length==1) {
+    if(args[0]=="seed-users-and-roles")
+        await Seed.SeedUsersAndRolesAsync(app);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
