@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder();
 
 // Add services to the container.
 
@@ -86,6 +86,10 @@ builder.Services.AddDbContext<AppDbContext>(
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 var app = builder.Build();
+
+await Seed.SeedUsersAndRolesAsync(app);
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {

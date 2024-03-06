@@ -16,7 +16,6 @@ namespace AuthApp.Controllers {
         }
 
         [HttpGet("userStatus")]
-        [Authorize]
         public async Task<IActionResult> GetUserStatus() {
             // Получение текущего пользователя
             var username = User.GetUsername();
