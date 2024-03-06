@@ -10,14 +10,13 @@ namespace AuthApp.Controllers {
     [Route("api/user")]
     public class UserController : Controller {
         private readonly UserManager<AppUser> _userManager;
-        private readonly RoleManager<AppUser> _roleManager;
 
         public UserController(UserManager<AppUser> userManager) {
             _userManager = userManager;
         }
 
         [HttpGet("userStatus")]
-        [Authorize(Roles = "User")]
+        [Authorize]
         public async Task<IActionResult> GetUserStatus() {
             // Получение текущего пользователя
             var username = User.GetUsername();
@@ -28,12 +27,11 @@ namespace AuthApp.Controllers {
                 var roles = await _userManager.GetRolesAsync(appUser);
 
                 // Формирование сообщения о статусе авторизации и роли пользователя
-                var message = $"Пользователь {appUser.UserName} авторизован. Роли: {string.Join(", ", roles)}";
+                var message = $"User {appUser.UserName} is authorized. Roles: {string.Join(", ", roles)}";
                 return Ok(message);
             }
             else {
-                // Если пользователь не найден, возвращаем статус 401
-                return Unauthorized("Пользователь не авторизован");
+                return Ok("User is unauthorized");
             }
         }
     }

@@ -1,6 +1,8 @@
 ﻿using AuthApp.Dto;
+using AuthApp.Extensions;
 using AuthApp.Interfaces;
 using AuthApp.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,7 @@ namespace AuthApp.Controllers {
             _signInManager = signinManager;
         }
 
-        [HttpPost("Login")]
+        [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto loginDto) {
             if(!ModelState.IsValid) {
                 return BadRequest(ModelState);
@@ -77,6 +79,21 @@ namespace AuthApp.Controllers {
             }
             catch (Exception ex) { 
                 return StatusCode(500, ex);
+            }
+        }
+
+        [Authorize]
+        [HttpGet("logout")]
+        public async Task<IActionResult> Logout() {
+            var username = User.GetUsername();
+            var appUser = await _userManager.FindByNameAsync(username);
+
+            if (appUser != null) {
+                await _signInManager.SignOutAsync();
+                return Ok("Logout успешен");
+            }
+            else {
+                return Unauthorized("Unauthorized");
             }
         }
     }

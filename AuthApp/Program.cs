@@ -80,7 +80,7 @@ builder.Services.AddAuthentication(options => {
 });
 
 builder.Services.AddDbContext<AppDbContext>(
-    o => o.UseNpgsql(builder.Configuration.GetConnectionString("DeffaultConnection"))
+    options => options.UseNpgsql(builder.Configuration.GetConnectionString("DeffaultConnection"))
 );
 
 builder.Services.AddScoped<ITokenService, TokenService>();
