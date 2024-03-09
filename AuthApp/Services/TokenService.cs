@@ -1,4 +1,5 @@
 ﻿using AuthApp.Data;
+using AuthApp.DTOs;
 using AuthApp.Interfaces;
 using AuthApp.Models;
 using Microsoft.AspNetCore.Identity;
@@ -21,7 +22,7 @@ namespace AuthApp.Services {
             _userManager = userManager;
             _context = context;
         }
-        public async Task<string> CreateToken(AppUser user) {
+        public async Task<TokenDto> CreateToken(AppUser user, bool populateExp) {
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
@@ -37,7 +38,7 @@ namespace AuthApp.Services {
 
             var tokenDescriptor = new SecurityTokenDescriptor {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddDays(7),
+                Expires = DateTime.Now.AddMinutes(15),
                 SigningCredentials = creds,
                 Issuer = _config["JWT:Issuer"],
                 Audience = _config["JWT:Audience"]
@@ -47,31 +48,40 @@ namespace AuthApp.Services {
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
-            return tokenHandler.WriteToken(token);
-        }
+            string accessToken = tokenHandler.WriteToken(token);
 
-        public RefreshToken GenerateRefreshToken() {
+            
+            if (populateExp) {
+                var refreshToken = GenerateRefreshToken();
+                user.RefreshToken = refreshToken;
+                user.RefreshTokenExpires = DateTime.Now.AddDays(7);
+            }
 
-            var refreshToken = new RefreshToken {
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                Expires = DateTime.Now.AddDays(7),
-                Created = DateTime.Now
+            await _userManager.UpdateAsync(user);
+            Save();
+
+            var tokenDto = new TokenDto {
+                AccessToken = accessToken,
+                RefreshToken = user.RefreshToken
             };
 
-            return refreshToken;
+            return tokenDto;
         }
 
-        public bool SetRefreshToken(AppUser user, RefreshToken newRefreshToken) {
-            user.RefreshToken = newRefreshToken.Token;
-            user.TokenCreated = newRefreshToken.Created;
-            user.TokenExpires = newRefreshToken.Expires;
-            _context.Update(user);
-            return Save();
+        public string GenerateRefreshToken() {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        }
+
+        public async Task<TokenDto> RefreshToken(AppUser appUser, TokenDto tokenDto) {
+            if (appUser == null || appUser.RefreshToken != tokenDto.RefreshToken ||
+                appUser.RefreshTokenExpires <= DateTime.Now)
+                throw new Exception("Invalid client request.The tokenDto has some invalid values.");
+
+            return await CreateToken(appUser,populateExp: false);
         }
 
         public bool Save() {
             return Convert.ToBoolean(_context.SaveChanges());
         }
-
     }
 }

@@ -15,12 +15,11 @@ namespace AuthApp.Controllers {
             _userManager = userManager;
         }
 
-        [HttpGet("userStatus")]
+        [Authorize]
+        [HttpGet("user-status")]
         public async Task<IActionResult> GetUserStatus() {
-            // Получение текущего пользователя
             var username = User.GetUsername();
             var appUser = await _userManager.FindByNameAsync(username);
-
             if (appUser != null) {
                 // Получение ролей текущего пользователя
                 var roles = await _userManager.GetRolesAsync(appUser);

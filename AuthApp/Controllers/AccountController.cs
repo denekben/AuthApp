@@ -34,26 +34,18 @@ namespace AuthApp.Controllers {
 
             if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrert");
 
-            var token = await _tokenService.CreateToken(user);
-            var refreshToken = _tokenService.GenerateRefreshToken();
-            _tokenService.SetRefreshToken(user, refreshToken);
+            var tokenDto = await _tokenService.CreateToken(user, populateExp: true);
 
-            HttpContext.Response.Cookies.Append("Access-Token", token);
+            HttpContext.Response.Cookies.Append("Access-Token", tokenDto.AccessToken);
             HttpContext.Response.Cookies.Append("Username", user.UserName);
-            HttpContext.Response.Cookies.Append("Refresh-Token", user.RefreshToken, 
+            HttpContext.Response.Cookies.Append("Refresh-Token", tokenDto.RefreshToken,
                 new CookieOptions {
                     HttpOnly = true,
-                    Expires = refreshToken.Expires
+                    Expires = user.RefreshTokenExpires
                 }
             );
 
-            return Ok(
-                new NewUserDto {
-                    UserName = user.UserName,
-                    Email = user.Email,
-                    Token = token
-                }
-            );
+            return Ok(tokenDto);
         }
 
         [HttpPost("register")]
@@ -72,26 +64,18 @@ namespace AuthApp.Controllers {
                     var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
                     if (roleResult.Succeeded) {
 
-                        var token = await _tokenService.CreateToken(appUser);
-                        var refreshToken = _tokenService.GenerateRefreshToken();
-                        _tokenService.SetRefreshToken(appUser, refreshToken);
+                        var tokenDto = await _tokenService.CreateToken(appUser, populateExp: true);
 
-                        HttpContext.Response.Cookies.Append("Access-Token", token);
+                        HttpContext.Response.Cookies.Append("Access-Token", tokenDto.AccessToken);
                         HttpContext.Response.Cookies.Append("Username", appUser.UserName);
-                        HttpContext.Response.Cookies.Append("Refresh-Token", appUser.RefreshToken,
+                        HttpContext.Response.Cookies.Append("Refresh-Token", tokenDto.RefreshToken,
                             new CookieOptions {
                                 HttpOnly = true,
-                                Expires = refreshToken.Expires
+                                Expires = appUser.RefreshTokenExpires
                             }
                         );
 
-                        return Ok(
-                            new NewUserDto {
-                                UserName = registerDto.UserName,
-                                Email = registerDto.Email,
-                                Token = await _tokenService.CreateToken(appUser)
-                            }
-                        );
+                        return Ok(tokenDto);
                     }
                     else {
                         return StatusCode(500, roleResult.Errors);
@@ -110,45 +94,8 @@ namespace AuthApp.Controllers {
         [Authorize]
         [HttpGet("logout")]
         public async Task<IActionResult> Logout() {
-            var username = User.GetUsername();
-            var appUser = await _userManager.FindByNameAsync(username);
-
-            if (appUser != null) {
-                await _signInManager.SignOutAsync();
-                return Ok("Logout успешен");
-            }
-            else {
-                return Unauthorized("Unauthorized");
-            }
-        }
-
-        [HttpPost("refresh-token")]
-        public async Task<ActionResult<string>> RefreshToken() {
-            var username = User.GetUsername();
-            var appUser = await _userManager.FindByNameAsync(username);
-
-            var refreshToken = Request.Cookies["Refresh-Token"];
-
-            if (!appUser.RefreshToken.Equals(refreshToken)) {
-                return Unauthorized("Invalid Refresh Token.");
-            }
-            else if (appUser.TokenExpires < DateTime.Now) {
-                return Unauthorized("Token expired.");
-            }
-            string token = await _tokenService.CreateToken(appUser);
-            var newRefreshToken = _tokenService.GenerateRefreshToken();
-            _tokenService.SetRefreshToken(appUser, newRefreshToken);
-
-            HttpContext.Response.Cookies.Append("Access-Token", token);
-            HttpContext.Response.Cookies.Append("Username", appUser.UserName);
-            HttpContext.Response.Cookies.Append("Refresh-Token", appUser.RefreshToken,
-                new CookieOptions {
-                    HttpOnly = true,
-                    Expires = newRefreshToken.Expires
-                }
-            );
-
-            return Ok(newRefreshToken);
+            // magic code 
+            return Ok();
         }
     }
 }
