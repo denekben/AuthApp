@@ -22,7 +22,25 @@ namespace AuthApp.Services {
             _userManager = userManager;
             _context = context;
         }
-        public async Task<TokenDto> CreateToken(AppUser user, bool populateExp) {
+        public async Task<TokenDto> CreateTokenDto(AppUser user, bool populateExp) {
+            string accessToken = await GenerateAccessToken(user);
+            
+            if (populateExp) {
+                var refreshToken = GenerateRefreshToken();
+                user.RefreshToken = refreshToken;
+                user.RefreshTokenExpires = DateTime.Now.AddDays(7);
+            }
+
+            await _userManager.UpdateAsync(user);
+
+            var tokenDto = new TokenDto {
+                AccessToken = accessToken,
+                RefreshToken = user.RefreshToken
+            };
+
+            return tokenDto;
+        }
+        public async Task<string> GenerateAccessToken(AppUser user) {
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
@@ -48,24 +66,7 @@ namespace AuthApp.Services {
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
-            string accessToken = tokenHandler.WriteToken(token);
-
-            
-            if (populateExp) {
-                var refreshToken = GenerateRefreshToken();
-                user.RefreshToken = refreshToken;
-                user.RefreshTokenExpires = DateTime.Now.AddDays(7);
-            }
-
-            await _userManager.UpdateAsync(user);
-            Save();
-
-            var tokenDto = new TokenDto {
-                AccessToken = accessToken,
-                RefreshToken = user.RefreshToken
-            };
-
-            return tokenDto;
+            return tokenHandler.WriteToken(token);
         }
 
         public string GenerateRefreshToken() {
@@ -77,11 +78,7 @@ namespace AuthApp.Services {
                 appUser.RefreshTokenExpires <= DateTime.Now)
                 throw new Exception("Invalid client request.The tokenDto has some invalid values.");
 
-            return await CreateToken(appUser,populateExp: false);
-        }
-
-        public bool Save() {
-            return Convert.ToBoolean(_context.SaveChanges());
+            return await CreateTokenDto(appUser,populateExp: false);
         }
     }
 }

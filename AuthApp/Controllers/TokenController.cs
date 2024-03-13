@@ -26,7 +26,13 @@ namespace AuthApp.Controllers {
                 return Unauthorized("Invalid username");
             var appUser = await _userManager.FindByNameAsync(username);
 
-            var tokenDtoToReturn = await _tokenService.RefreshToken(appUser, tokenDto);
+            TokenDto tokenDtoToReturn;
+            try {
+                tokenDtoToReturn = await _tokenService.RefreshToken(appUser, tokenDto);
+            }
+            catch (Exception ex) {
+                return BadRequest(ex.Message);
+            }
 
             HttpContext.Response.Cookies.Append("Access-Token", tokenDtoToReturn.AccessToken);
 

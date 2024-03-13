@@ -34,7 +34,7 @@ namespace AuthApp.Controllers {
 
             if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrert");
 
-            var tokenDto = await _tokenService.CreateToken(user, populateExp: true);
+            var tokenDto = await _tokenService.CreateTokenDto(user, populateExp: true);
 
             HttpContext.Response.Cookies.Append("Access-Token", tokenDto.AccessToken);
             HttpContext.Response.Cookies.Append("Username", user.UserName);
@@ -64,7 +64,7 @@ namespace AuthApp.Controllers {
                     var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
                     if (roleResult.Succeeded) {
 
-                        var tokenDto = await _tokenService.CreateToken(appUser, populateExp: true);
+                        var tokenDto = await _tokenService.CreateTokenDto(appUser, populateExp: true);
 
                         HttpContext.Response.Cookies.Append("Access-Token", tokenDto.AccessToken);
                         HttpContext.Response.Cookies.Append("Username", appUser.UserName);
